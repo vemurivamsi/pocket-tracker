@@ -1,8 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:pocket_watcher/model/incomemodel.dart';
 import 'package:pocket_watcher/model/transactionmodel.dart';
 import 'package:pocket_watcher/helper/databasehelper.dart';
 import 'package:intl/intl.dart';
+import 'package:pocket_watcher/screens/addexpensescreen.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -156,6 +158,7 @@ class _HomeScreenState extends State<HomeScreen>
     _controller = AnimationController(vsync: this);
     _loadYears();
     _loadMonths();
+    _checkMonthlyIncome();
     _loadData();
   }
 
@@ -205,7 +208,7 @@ class _HomeScreenState extends State<HomeScreen>
     for (var transaction in currentMonthTransactions) {
       if (transaction.categoryId != null) {
         final categoryName = await DatabaseHelper.instance
-                .getCategoryNameById(transaction.categoryId!) ??
+                .getCategoryNameById(transaction.categoryId) ??
             'Uncategorized';
 
         grouped.putIfAbsent(categoryName, () => []);
@@ -238,6 +241,67 @@ class _HomeScreenState extends State<HomeScreen>
 
     return Map.fromEntries(
       sortedKeys.map((key) => MapEntry(key, grouped[key]!)),
+    );
+  }
+
+  Future<void> _checkMonthlyIncome() async {
+    final now = DateTime.now();
+    final currentMonthIncome =
+        await DatabaseHelper.instance.getIncomeByMonth(now.year, now.month);
+
+    if (currentMonthIncome.isEmpty) {
+      if (mounted) {
+        _showIncomeDialog();
+      }
+    }
+  }
+
+  Future<void> _showIncomeDialog() async {
+    final TextEditingController incomeController = TextEditingController();
+
+    return showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Monthly Income'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Please enter your monthly income:'),
+              TextField(
+                controller: incomeController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Income Amount',
+                  prefixText: '₹',
+                ),
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Save'),
+              onPressed: () async {
+                final amount = double.tryParse(incomeController.text);
+                if (amount != null && amount > 0) {
+                  final now = DateTime.now();
+                  await DatabaseHelper.instance.insertIncome(
+                    IncomeModel(
+                      date: now.toString(),
+                      amount: amount,
+                    ),
+                  );
+                  if (mounted) {
+                    Navigator.of(context).pop();
+                    _loadData(); // Reload dashboard data
+                  }
+                }
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -687,6 +751,53 @@ class _HomeScreenState extends State<HomeScreen>
                           ),
                         ],
                       ),
+                      // Add this new section after the filters
+                      if (currentMonthTransactions.isEmpty) ...[
+                        const SizedBox(height: 60),
+                        Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.receipt_long_outlined,
+                                size: 64,
+                                color: Colors.grey,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No expenses found for ${_getFilterTitle().toLowerCase()}',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 24),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const AddExpenseScreen(),
+                                    ),
+                                  ).then((_) => _loadData());
+                                },
+                                icon: const Icon(Icons.add),
+                                label: const Text('Add Expense'),
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 12,
+                                  ),
+                                  backgroundColor: Colors.blue,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       // Pie Chart (Moved above Recent Transactions)
                       if (chartData.isNotEmpty) ...[
                         const SizedBox(height: 24),

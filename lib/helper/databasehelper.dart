@@ -403,11 +403,11 @@ class DatabaseHelper {
     return result.isNotEmpty;
   }
 
-  // Insert a transaction
-  Future<int> insertTransaction(TransactionModel transaction) async {
-    Database db = await instance.database;
-    return await db.insert('transactions', transaction.toMap());
-  }
+  // // Insert a transaction
+  // Future<int> insertTransaction(TransactionModel transaction) async {
+  //   Database db = await instance.database;
+  //   return await db.insert('transactions', transaction.toMap());
+  // }
 
   // Get all transactions
   Future<List<TransactionModel>> getAllTransactions() async {
@@ -921,5 +921,33 @@ class DatabaseHelper {
     );
 
     return result.isNotEmpty ? result.first['category_name'] as String : null;
+  }
+
+  Future<List<Map<String, dynamic>>> getCategories() async {
+    final db = await database;
+    return await db.query('categories');
+  }
+
+  Future<List<Map<String, dynamic>>> getTransactionsByDate(String date) async {
+    final db = await database;
+    return await db.query(
+      'transactions',
+      where: 'date = ?',
+      whereArgs: [date],
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getSubcategories() async {
+    final db = await database;
+    return await db.query('subcategories');
+  }
+
+  Future<int> insertTransaction(TransactionModel transaction) async {
+    final db = await database;
+    return await db.insert(
+      'transactions',
+      transaction.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 }
