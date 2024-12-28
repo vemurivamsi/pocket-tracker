@@ -1,0 +1,1 @@
+ /Users/vamsivemuri/Desktop/pocket_watcher/.dart_tool/flutter_build/b0c1b575023c2c965d3b20f8750a01c2/native_assets.yaml: 
