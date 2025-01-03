@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:pocket_watcher/model/incomemodel.dart';
-import 'package:pocket_watcher/model/transactionmodel.dart';
+import 'package:pocket_watcher/models/income_model.dart';
+import 'package:pocket_watcher/models/transaction_model.dart';
 import 'package:pocket_watcher/helper/databasehelper.dart';
 import 'package:intl/intl.dart';
 import 'package:pocket_watcher/screens/addexpensescreen.dart';

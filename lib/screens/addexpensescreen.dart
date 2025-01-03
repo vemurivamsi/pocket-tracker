@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:pocket_watcher/helper/databasehelper.dart';
-import '../model/transactionmodel.dart';
+import 'package:pocket_watcher/models/transaction_model.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   const AddExpenseScreen({super.key});

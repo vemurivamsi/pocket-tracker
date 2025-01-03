@@ -1,12 +1,13 @@
-import 'package:pocket_watcher/model/categorymodel.dart';
-import 'package:pocket_watcher/model/incomemodel.dart';
-import 'package:pocket_watcher/model/subcategorymodel.dart';
-import 'package:pocket_watcher/model/transactionmodel.dart';
+import 'package:pocket_watcher/models/income_model.dart';
+import 'package:pocket_watcher/models/transaction_model.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:math';
 import 'dart:io';
+
+import '../models/category_model.dart';
+import '../models/subcategory_model.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
