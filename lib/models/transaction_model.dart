@@ -2,7 +2,7 @@ class TransactionModel {
   final int? id;
   final String date;
   final double amount;
-  final int categoryId;
+  final int? categoryId;
   final int? subcategoryId;
   final String? description;
 
@@ -10,7 +10,7 @@ class TransactionModel {
     this.id,
     required this.date,
     required this.amount,
-    required this.categoryId,
+    this.categoryId,
     this.subcategoryId,
     this.description,
   });
@@ -26,14 +26,16 @@ class TransactionModel {
     };
   }
 
-  static TransactionModel fromMap(Map<String, dynamic> map) {
+  factory TransactionModel.fromMap(Map<String, dynamic> map) {
     return TransactionModel(
-      id: map['id'],
-      date: map['date'],
-      amount: map['amount'],
-      categoryId: map['category_id'],
-      subcategoryId: map['subcategory_id'],
-      description: map['description'],
+      id: map['id'] as int?,
+      date: map['date'] as String,
+      amount: map['amount'] as double,
+      categoryId: map['category_id'] as int?,
+      subcategoryId: map['subcategory_id'] as int?,
+      description: map['description'] as String?,
     );
   }
+
+  DateTime get dateTime => DateTime.parse(date);
 }

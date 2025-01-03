@@ -5,6 +5,7 @@ import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:math';
 import 'dart:io';
+import 'package:intl/intl.dart';
 
 import '../models/category_model.dart';
 import '../models/subcategory_model.dart';
@@ -166,35 +167,35 @@ class DatabaseHelper {
       }
     }
 
-    // Static monthly income data
-    final incomeData = [
-      {
-        'amount': 50000.0,
-        'date': '2024-01-01',
-        'description': 'January Salary'
-      },
-      {
-        'amount': 50000.0,
-        'date': '2024-02-01',
-        'description': 'February Salary'
-      },
-      {
-        'amount': 52000.0, // Bonus month
-        'date': '2024-03-01',
-        'description': 'March Salary with Performance Bonus'
-      },
-      {'amount': 50000.0, 'date': '2024-04-01', 'description': 'April Salary'},
-      {'amount': 50000.0, 'date': '2024-05-01', 'description': 'May Salary'}
-    ];
+    //   // Static monthly income data
+    //   final incomeData = [
+    //     {
+    //       'amount': 50000.0,
+    //       'date': '2024-01-01',
+    //       'description': 'January Salary'
+    //     },
+    //     {
+    //       'amount': 50000.0,
+    //       'date': '2024-02-01',
+    //       'description': 'February Salary'
+    //     },
+    //     {
+    //       'amount': 52000.0, // Bonus month
+    //       'date': '2024-03-01',
+    //       'description': 'March Salary with Performance Bonus'
+    //     },
+    //     {'amount': 50000.0, 'date': '2024-04-01', 'description': 'April Salary'},
+    //     {'amount': 50000.0, 'date': '2024-05-01', 'description': 'May Salary'}
+    //   ];
 
-    // Insert income data
-    for (var income in incomeData) {
-      await db.insert('income', {
-        'amount': income['amount'],
-        'date': income['date'],
-        'description': income['description'],
-      });
-    }
+    //   // Insert income data
+    //   for (var income in incomeData) {
+    //     await db.insert('income', {
+    //       'amount': income['amount'],
+    //       'date': income['date'],
+    //       'description': income['description'],
+    //     });
+    //   }
   }
 
   // Insert a category
@@ -405,16 +406,80 @@ class DatabaseHelper {
   }
 
   // // Insert a transaction
-  // Future<int> insertTransaction(TransactionModel transaction) async {
-  //   Database db = await instance.database;
-  //   return await db.insert('transactions', transaction.toMap());
-  // }
+  Future<int> insertTransaction(TransactionModel transaction) async {
+    final db = await database;
+
+    // Format the date consistently
+    final String formattedDate =
+        DateFormat('yyyy-MM-dd').format(DateTime.parse(transaction.date));
+
+    try {
+      // Check if a transaction with same date, category, and subcategory exists
+      final List<Map<String, dynamic>> existingTransactions = await db.query(
+        'transactions',
+        where: 'date = ? AND category_id = ? AND subcategory_id = ?',
+        whereArgs: [
+          formattedDate,
+          transaction.categoryId,
+          transaction.subcategoryId,
+        ],
+      );
+
+      if (existingTransactions.isNotEmpty) {
+        // If exists, update the existing transaction by adding the amounts
+        final existingTransaction =
+            TransactionModel.fromMap(existingTransactions.first);
+        final Map<String, dynamic> updateData = {
+          'amount': transaction.amount,
+          'date': formattedDate,
+          'category_id': transaction.categoryId,
+          'subcategory_id': transaction.subcategoryId,
+          'description': transaction.description,
+        };
+
+        return await db.update(
+          'transactions',
+          updateData,
+          where: 'id = ?',
+          whereArgs: [existingTransaction.id],
+        );
+      } else {
+        // If no existing transaction, insert new one
+        final Map<String, dynamic> insertData = {
+          'amount': transaction.amount,
+          'date': formattedDate,
+          'category_id': transaction.categoryId,
+          'subcategory_id': transaction.subcategoryId,
+          'description': transaction.description,
+        };
+
+        return await db.insert(
+          'transactions',
+          insertData,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    } catch (e) {
+      print('Error in insertTransaction: $e');
+      rethrow;
+    }
+  }
 
   // Get all transactions
   Future<List<TransactionModel>> getAllTransactions() async {
     Database db = await instance.database;
     final List<Map<String, dynamic>> maps = await db.query('transactions');
-    return List.generate(maps.length, (i) => TransactionModel.fromMap(maps[i]));
+    return List.generate(maps.length, (i) {
+      final map = maps[i];
+      return TransactionModel(
+        id: map['id'] as int,
+        date: map['date'] as String,
+        amount: map['amount'] as double,
+        categoryId: map['category_id'] as int?,
+        subcategoryId: map['subcategory_id'] as int?,
+        description: map['description'] as String?,
+      );
+    });
   }
 
   // Get transactions by date range
@@ -688,138 +753,138 @@ class DatabaseHelper {
     return result.map((row) => int.parse(row['month'].toString())).toList();
   }
 
-  Future<void> insertStaticData() async {
-    final db = await database;
+  // Future<void> insertStaticData() async {
+  //   final db = await database;
 
-    // First, clear existing data if any
-    await db.delete('transactions');
-    await db.delete('subcategories');
-    await db.delete('categories');
-    await db.delete('income');
+  //   // First, clear existing data if any
+  //   await db.delete('transactions');
+  //   await db.delete('subcategories');
+  //   await db.delete('categories');
+  //   await db.delete('income');
 
-    // Reset auto-increment counters
-    await db.execute('DELETE FROM sqlite_sequence WHERE name=\'categories\'');
-    await db
-        .execute('DELETE FROM sqlite_sequence WHERE name=\'subcategories\'');
-    await db.execute('DELETE FROM sqlite_sequence WHERE name=\'transactions\'');
-    await db.execute('DELETE FROM sqlite_sequence WHERE name=\'income\'');
+  //   // Reset auto-increment counters
+  //   await db.execute('DELETE FROM sqlite_sequence WHERE name=\'categories\'');
+  //   await db
+  //       .execute('DELETE FROM sqlite_sequence WHERE name=\'subcategories\'');
+  //   await db.execute('DELETE FROM sqlite_sequence WHERE name=\'transactions\'');
+  //   await db.execute('DELETE FROM sqlite_sequence WHERE name=\'income\'');
 
-    // Categories with subcategories
-    final categories = [
-      {
-        'category_name': 'Food & Dining',
-        'subcategories': [
-          'Restaurants',
-          'Groceries',
-          'Coffee Shops',
-          'Food Delivery'
-        ]
-      },
-      {
-        'category_name': 'Transportation',
-        'subcategories': [
-          'Fuel',
-          'Public Transit',
-          'Car Maintenance',
-          'Parking'
-        ]
-      },
-      {
-        'category_name': 'Shopping',
-        'subcategories': [
-          'Clothing',
-          'Electronics',
-          'Home Goods',
-          'Personal Care'
-        ]
-      },
-      {
-        'category_name': 'Bills & Utilities',
-        'subcategories': ['Electricity', 'Water', 'Internet', 'Phone']
-      },
-      {
-        'category_name': 'Entertainment',
-        'subcategories': ['Movies', 'Games', 'Sports', 'Hobbies']
-      }
-    ];
+  //   // Categories with subcategories
+  //   final categories = [
+  //     {
+  //       'category_name': 'Food & Dining',
+  //       'subcategories': [
+  //         'Restaurants',
+  //         'Groceries',
+  //         'Coffee Shops',
+  //         'Food Delivery'
+  //       ]
+  //     },
+  //     {
+  //       'category_name': 'Transportation',
+  //       'subcategories': [
+  //         'Fuel',
+  //         'Public Transit',
+  //         'Car Maintenance',
+  //         'Parking'
+  //       ]
+  //     },
+  //     {
+  //       'category_name': 'Shopping',
+  //       'subcategories': [
+  //         'Clothing',
+  //         'Electronics',
+  //         'Home Goods',
+  //         'Personal Care'
+  //       ]
+  //     },
+  //     {
+  //       'category_name': 'Bills & Utilities',
+  //       'subcategories': ['Electricity', 'Water', 'Internet', 'Phone']
+  //     },
+  //     {
+  //       'category_name': 'Entertainment',
+  //       'subcategories': ['Movies', 'Games', 'Sports', 'Hobbies']
+  //     }
+  //   ];
 
-    // Insert categories and get their IDs
-    Map<String, int> categoryIds = {};
-    Map<String, int> subcategoryIds = {};
+  //   // Insert categories and get their IDs
+  //   Map<String, int> categoryIds = {};
+  //   Map<String, int> subcategoryIds = {};
 
-    for (var category in categories) {
-      final categoryId = await db
-          .insert('categories', {'category_name': category['category_name']});
-      categoryIds[category['category_name'] as String] = categoryId;
+  //   for (var category in categories) {
+  //     final categoryId = await db
+  //         .insert('categories', {'category_name': category['category_name']});
+  //     categoryIds[category['category_name'] as String] = categoryId;
 
-      // Insert subcategories
-      for (var subcategory in (category['subcategories'] as List)) {
-        final subcategoryId = await db.insert('subcategories', {
-          'subcategory_name': subcategory,
-          'category_id': categoryId,
-        });
-        subcategoryIds[subcategory] = subcategoryId;
-      }
-    }
+  //     // Insert subcategories
+  //     for (var subcategory in (category['subcategories'] as List)) {
+  //       final subcategoryId = await db.insert('subcategories', {
+  //         'subcategory_name': subcategory,
+  //         'category_id': categoryId,
+  //       });
+  //       subcategoryIds[subcategory] = subcategoryId;
+  //     }
+  //   }
 
-    // Insert monthly income data
-    final incomeData = [
-      {
-        'amount': 50000.0,
-        'date': '2024-01-01',
-        'description': 'January Salary'
-      },
-      {
-        'amount': 50000.0,
-        'date': '2024-02-01',
-        'description': 'February Salary'
-      },
-      {
-        'amount': 52000.0,
-        'date': '2024-03-01',
-        'description': 'March Salary with Performance Bonus'
-      },
-      {'amount': 50000.0, 'date': '2024-04-01', 'description': 'April Salary'},
-      {'amount': 50000.0, 'date': '2024-05-01', 'description': 'May Salary'}
-    ];
+  //   // Insert monthly income data
+  //   final incomeData = [
+  //     {
+  //       'amount': 50000.0,
+  //       'date': '2024-01-01',
+  //       'description': 'January Salary'
+  //     },
+  //     {
+  //       'amount': 50000.0,
+  //       'date': '2024-02-01',
+  //       'description': 'February Salary'
+  //     },
+  //     {
+  //       'amount': 52000.0,
+  //       'date': '2024-03-01',
+  //       'description': 'March Salary with Performance Bonus'
+  //     },
+  //     {'amount': 50000.0, 'date': '2024-04-01', 'description': 'April Salary'},
+  //     {'amount': 50000.0, 'date': '2024-05-01', 'description': 'May Salary'}
+  //   ];
 
-    // Insert income data
-    for (var income in incomeData) {
-      await db.insert('income', income);
-    }
+  //   // Insert income data
+  //   for (var income in incomeData) {
+  //     await db.insert('income', income);
+  //   }
 
-    // Generate expense transactions for first 5 months of 2024
-    final random = Random();
-    for (int month = 1; month <= 5; month++) {
-      // Generate 15-20 expense transactions per month
-      int transactionsCount = 15 + random.nextInt(6);
+  //   // Generate expense transactions for first 5 months of 2024
+  //   final random = Random();
+  //   for (int month = 1; month <= 5; month++) {
+  //     // Generate 15-20 expense transactions per month
+  //     int transactionsCount = 15 + random.nextInt(6);
 
-      for (int i = 0; i < transactionsCount; i++) {
-        // Random date within the month
-        final day = 1 + random.nextInt(DateTime(2024, month + 1, 0).day);
-        final date =
-            '2024-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
+  //     for (int i = 0; i < transactionsCount; i++) {
+  //       // Random date within the month
+  //       final day = 1 + random.nextInt(DateTime(2024, month + 1, 0).day);
+  //       final date =
+  //           '2024-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
 
-        // Random category and subcategory
-        final category = categories[random.nextInt(categories.length)];
-        final categoryName = category['category_name'] as String;
-        final subcategories = category['subcategories'] as List;
-        final subcategoryName =
-            subcategories[random.nextInt(subcategories.length)];
+  //       // Random category and subcategory
+  //       final category = categories[random.nextInt(categories.length)];
+  //       final categoryName = category['category_name'] as String;
+  //       final subcategories = category['subcategories'] as List;
+  //       final subcategoryName =
+  //           subcategories[random.nextInt(subcategories.length)];
 
-        // Random expense amount between 100 and 5000
-        final amount = 100 + random.nextInt(4901) + random.nextDouble();
+  //       // Random expense amount between 100 and 5000
+  //       final amount = 100 + random.nextInt(4901) + random.nextDouble();
 
-        await db.insert('transactions', {
-          'amount': amount.roundToDouble(),
-          'date': date,
-          'description': 'Expense for $subcategoryName',
-          'category_id': categoryIds[categoryName],
-          'subcategory_id': subcategoryIds[subcategoryName],
-        });
-      }
-    }
-  }
+  //       await db.insert('transactions', {
+  //         'amount': amount.roundToDouble(),
+  //         'date': date,
+  //         'description': 'Expense for $subcategoryName',
+  //         'category_id': categoryIds[categoryName],
+  //         'subcategory_id': subcategoryIds[subcategoryName],
+  //       });
+  //     }
+  //   }
+  // }
 
   // / Add this method to DatabaseHelper
   Future<bool> hasAnyTransactions() async {
@@ -943,12 +1008,47 @@ class DatabaseHelper {
     return await db.query('subcategories');
   }
 
-  Future<int> insertTransaction(TransactionModel transaction) async {
+  // Future<int> insertTransaction(TransactionModel transaction) async {
+  //   final db = await database;
+  //   return await db.insert(
+  //     'transactions',
+  //     transaction.toMap(),
+  //     conflictAlgorithm: ConflictAlgorithm.replace,
+  //   );
+  // }
+
+  Future<String?> getSubcategoryNameById(int? id) async {
+    if (id == null) return null;
+
     final db = await database;
-    return await db.insert(
-      'transactions',
-      transaction.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
+    final List<Map<String, dynamic>> maps = await db.query(
+      'subcategories',
+      columns: ['subcategory_name'],
+      where: 'id = ?',
+      whereArgs: [id],
     );
+
+    if (maps.isNotEmpty) {
+      return maps.first['subcategory_name'] as String;
+    }
+    return null;
+  }
+
+  Future<bool> hasCurrentMonthIncome() async {
+    final db = await database;
+    final now = DateTime.now();
+    final currentMonthStart =
+        DateFormat('yyyy-MM-dd').format(DateTime(now.year, now.month, 1));
+    final currentMonthEnd =
+        DateFormat('yyyy-MM-dd').format(DateTime(now.year, now.month + 1, 0));
+
+    final result = await db.query(
+      'income',
+      where: 'date BETWEEN ? AND ?',
+      whereArgs: [currentMonthStart, currentMonthEnd],
+      limit: 1,
+    );
+
+    return result.isNotEmpty;
   }
 }
