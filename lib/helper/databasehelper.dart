@@ -1,12 +1,13 @@
-import 'package:pocket_watcher/model/categorymodel.dart';
-import 'package:pocket_watcher/model/incomemodel.dart';
-import 'package:pocket_watcher/model/subcategorymodel.dart';
-import 'package:pocket_watcher/model/transactionmodel.dart';
+import 'package:pocket_watcher/models/income_model.dart';
+import 'package:pocket_watcher/models/transaction_model.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:math';
 import 'dart:io';
+
+import '../models/category_model.dart';
+import '../models/subcategory_model.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -403,11 +404,11 @@ class DatabaseHelper {
     return result.isNotEmpty;
   }
 
-  // Insert a transaction
-  Future<int> insertTransaction(TransactionModel transaction) async {
-    Database db = await instance.database;
-    return await db.insert('transactions', transaction.toMap());
-  }
+  // // Insert a transaction
+  // Future<int> insertTransaction(TransactionModel transaction) async {
+  //   Database db = await instance.database;
+  //   return await db.insert('transactions', transaction.toMap());
+  // }
 
   // Get all transactions
   Future<List<TransactionModel>> getAllTransactions() async {
@@ -921,5 +922,33 @@ class DatabaseHelper {
     );
 
     return result.isNotEmpty ? result.first['category_name'] as String : null;
+  }
+
+  Future<List<Map<String, dynamic>>> getCategories() async {
+    final db = await database;
+    return await db.query('categories');
+  }
+
+  Future<List<Map<String, dynamic>>> getTransactionsByDate(String date) async {
+    final db = await database;
+    return await db.query(
+      'transactions',
+      where: 'date = ?',
+      whereArgs: [date],
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getSubcategories() async {
+    final db = await database;
+    return await db.query('subcategories');
+  }
+
+  Future<int> insertTransaction(TransactionModel transaction) async {
+    final db = await database;
+    return await db.insert(
+      'transactions',
+      transaction.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 }

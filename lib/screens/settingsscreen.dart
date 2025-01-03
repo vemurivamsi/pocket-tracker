@@ -1,7 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:pocket_watcher/screens/categorymanagementscreen.dart';
+
 import '../helper/settingdatabasehelper.dart';
+import 'category_management_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
