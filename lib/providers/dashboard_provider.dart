@@ -1,149 +1,298 @@
-import 'package:flutter/foundation.dart';
+// import 'package:flutter_riverpod/flutter_riverpod.dart';
+// import 'package:flutter/foundation.dart';
+// import 'package:flutter/material.dart';
+// import '../models/transaction_model.dart';
+// import '../helper/databasehelper.dart';
+
+// final dashboardProvider = ChangeNotifierProvider<DashboardProvider>((ref) {
+//   return DashboardProvider();
+// });
+
+// class DashboardProvider extends ChangeNotifier {
+//   String _selectedFilter = 'today';
+//   int _selectedYear = DateTime.now().year;
+//   int _selectedMonth = DateTime.now().month;
+//   DateTimeRange? _customDateRange;
+//   List<int> _availableYears = [];
+//   List<int> _availableMonths = [];
+//   List<ExpenseData> _chartData = [];
+//   double _totalAmount = 0.0;
+//   double _remainingAmount = 0.0;
+//   double _monthlyIncome = 0.0;
+
+//   // Getters
+//   String get selectedFilter => _selectedFilter;
+//   int get selectedYear => _selectedYear;
+//   int get selectedMonth => _selectedMonth;
+//   DateTimeRange? get customDateRange => _customDateRange;
+//   List<int> get availableYears => _availableYears;
+//   List<int> get availableMonths => _availableMonths;
+//   List<ExpenseData> get chartData => _chartData;
+//   double get totalAmount => _totalAmount;
+//   double get remainingAmount => _remainingAmount;
+//   double get monthlyIncome => _monthlyIncome;
+
+//   // Update filter
+//   void updateFilter(String filter) {
+//     _selectedFilter = filter;
+//     // Reset custom date range when switching to other filters
+//     if (filter != 'custom') {
+//       _customDateRange = null;
+//     }
+//     notifyListeners();
+//   }
+
+//   // Update year
+//   void updateYear(int year) {
+//     _selectedYear = year;
+//     notifyListeners();
+//   }
+
+//   // Update month
+//   void updateMonth(int month) {
+//     _selectedMonth = month;
+//     notifyListeners();
+//   }
+
+//   // Update custom date range
+//   void updateCustomDateRange(DateTimeRange range) {
+//     _customDateRange = range;
+//     notifyListeners();
+//   }
+
+//   // Update available years
+//   Future<void> loadAvailableYears() async {
+//     final years = await DatabaseHelper.instance.getUniqueTransactionYears();
+//     _availableYears = years.isEmpty ? [DateTime.now().year] : years;
+//     notifyListeners();
+//   }
+
+//   // Update available months
+//   Future<void> loadAvailableMonths() async {
+//     final months =
+//         await DatabaseHelper.instance.getUniqueMonthsForYear(_selectedYear);
+//     _availableMonths = months.isEmpty ? [DateTime.now().month] : months;
+//     notifyListeners();
+//   }
+
+//   // Update chart data
+//   Future<void> updateChartData(List<TransactionModel> transactions) async {
+//     if (transactions.isEmpty) {
+//       _chartData = [];
+//       notifyListeners();
+//       return;
+//     }
+
+//     Map<String, double> categoryTotals = {};
+
+//     for (var transaction in transactions) {
+//       if (transaction.categoryId != null) {
+//         final categoryName = await DatabaseHelper.instance
+//                 .getCategoryNameById(transaction.categoryId!) ??
+//             'Uncategorized';
+
+//         categoryTotals[categoryName] =
+//             (categoryTotals[categoryName] ?? 0) + transaction.amount;
+//       }
+//     }
+
+//     _chartData = categoryTotals.entries
+//         .map((entry) => ExpenseData(entry.key, entry.value))
+//         .toList();
+
+//     notifyListeners();
+//   }
+
+//   // Update amounts
+//   void updateAmounts({
+//     required double total,
+//     required double monthly,
+//     required double remaining,
+//   }) {
+//     _totalAmount = total;
+//     _monthlyIncome = monthly;
+//     _remainingAmount = remaining;
+//     notifyListeners();
+//   }
+
+//   // Get date range based on current filter
+//   DateTimeRange getDateRange() {
+//     final now = DateTime.now();
+//     DateTime startDate;
+//     DateTime endDate;
+
+//     switch (_selectedFilter) {
+//       case 'today':
+//         startDate = DateTime(now.year, now.month, now.day);
+//         endDate = DateTime(now.year, now.month, now.day, 23, 59, 59);
+//         break;
+//       case 'month':
+//         startDate = DateTime(_selectedYear, _selectedMonth, 1);
+//         endDate = DateTime(_selectedYear, _selectedMonth + 1, 0);
+//         break;
+//       case 'year':
+//         startDate = DateTime(_selectedYear, 1, 1);
+//         endDate = DateTime(_selectedYear, 12, 31);
+//         break;
+//       case 'custom':
+//         if (_customDateRange != null) {
+//           startDate = _customDateRange!.start;
+//           endDate = _customDateRange!.end;
+//         } else {
+//           startDate = DateTime(now.year, now.month, now.day);
+//           endDate = DateTime(now.year, now.month, now.day, 23, 59, 59);
+//         }
+//         break;
+//       default:
+//         startDate = DateTime(now.year, now.month, now.day);
+//         endDate = DateTime(now.year, now.month, now.day, 23, 59, 59);
+//     }
+
+//     return DateTimeRange(start: startDate, end: endDate);
+//   }
+// }
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
-import '../models/transaction_model.dart';
 import '../helper/databasehelper.dart';
 
-class DashboardProvider extends ChangeNotifier {
-  String _selectedFilter = 'today';
-  int _selectedYear = DateTime.now().year;
-  int _selectedMonth = DateTime.now().month;
-  DateTimeRange? _customDateRange;
-  List<int> _availableYears = [];
-  List<int> _availableMonths = [];
-  List<ExpenseData> _chartData = [];
-  double _totalAmount = 0.0;
-  double _remainingAmount = 0.0;
-  double _monthlyIncome = 0.0;
+final dashboardProvider =
+    StateNotifierProvider<DashboardNotifier, DashboardState>((ref) {
+  return DashboardNotifier();
+});
 
-  // Getters
-  String get selectedFilter => _selectedFilter;
-  int get selectedYear => _selectedYear;
-  int get selectedMonth => _selectedMonth;
-  DateTimeRange? get customDateRange => _customDateRange;
-  List<int> get availableYears => _availableYears;
-  List<int> get availableMonths => _availableMonths;
-  List<ExpenseData> get chartData => _chartData;
-  double get totalAmount => _totalAmount;
-  double get remainingAmount => _remainingAmount;
-  double get monthlyIncome => _monthlyIncome;
+class DashboardState {
+  final String selectedFilter;
+  final int selectedYear;
+  final int selectedMonth;
+  final DateTimeRange? customDateRange;
+  final List<int> availableYears;
+  final List<int> availableMonths;
+  final List<ExpenseData> chartData;
+  final double totalAmount;
+  final double remainingAmount;
+  final double monthlyIncome;
 
-  // Update filter
+  DashboardState({
+    required this.selectedFilter,
+    required this.selectedYear,
+    required this.selectedMonth,
+    this.customDateRange,
+    required this.availableYears,
+    required this.availableMonths,
+    required this.chartData,
+    required this.totalAmount,
+    required this.remainingAmount,
+    required this.monthlyIncome,
+  });
+
+  DashboardState copyWith({
+    String? selectedFilter,
+    int? selectedYear,
+    int? selectedMonth,
+    DateTimeRange? customDateRange,
+    List<int>? availableYears,
+    List<int>? availableMonths,
+    List<ExpenseData>? chartData,
+    double? totalAmount,
+    double? remainingAmount,
+    double? monthlyIncome,
+  }) {
+    return DashboardState(
+      selectedFilter: selectedFilter ?? this.selectedFilter,
+      selectedYear: selectedYear ?? this.selectedYear,
+      selectedMonth: selectedMonth ?? this.selectedMonth,
+      customDateRange: customDateRange ?? this.customDateRange,
+      availableYears: availableYears ?? this.availableYears,
+      availableMonths: availableMonths ?? this.availableMonths,
+      chartData: chartData ?? this.chartData,
+      totalAmount: totalAmount ?? this.totalAmount,
+      remainingAmount: remainingAmount ?? this.remainingAmount,
+      monthlyIncome: monthlyIncome ?? this.monthlyIncome,
+    );
+  }
+}
+
+class DashboardNotifier extends StateNotifier<DashboardState> {
+  DashboardNotifier()
+      : super(DashboardState(
+          selectedFilter: 'today',
+          selectedYear: DateTime.now().year,
+          selectedMonth: DateTime.now().month,
+          customDateRange: null,
+          availableYears: [],
+          availableMonths: [],
+          chartData: [],
+          totalAmount: 0.0,
+          remainingAmount: 0.0,
+          monthlyIncome: 0.0,
+        ));
+
   void updateFilter(String filter) {
-    _selectedFilter = filter;
-    // Reset custom date range when switching to other filters
-    if (filter != 'custom') {
-      _customDateRange = null;
-    }
-    notifyListeners();
+    state = state.copyWith(
+      selectedFilter: filter,
+      customDateRange: filter != 'custom' ? null : state.customDateRange,
+    );
   }
 
-  // Update year
   void updateYear(int year) {
-    _selectedYear = year;
-    notifyListeners();
+    state = state.copyWith(selectedYear: year);
   }
 
-  // Update month
   void updateMonth(int month) {
-    _selectedMonth = month;
-    notifyListeners();
+    state = state.copyWith(selectedMonth: month);
   }
 
-  // Update custom date range
-  void updateCustomDateRange(DateTimeRange range) {
-    _customDateRange = range;
-    notifyListeners();
+  void updateCustomDateRange(DateTimeRange? range) {
+    state = state.copyWith(customDateRange: range);
   }
 
-  // Update available years
   Future<void> loadAvailableYears() async {
     final years = await DatabaseHelper.instance.getUniqueTransactionYears();
-    _availableYears = years.isEmpty ? [DateTime.now().year] : years;
-    notifyListeners();
+    state = state.copyWith(availableYears: years);
   }
 
-  // Update available months
   Future<void> loadAvailableMonths() async {
-    final months =
-        await DatabaseHelper.instance.getUniqueMonthsForYear(_selectedYear);
-    _availableMonths = months.isEmpty ? [DateTime.now().month] : months;
-    notifyListeners();
+    final months = await DatabaseHelper.instance
+        .getUniqueMonthsForYear(state.selectedYear);
+    state = state.copyWith(availableMonths: months);
   }
 
-  // Update chart data
-  Future<void> updateChartData(List<TransactionModel> transactions) async {
-    if (transactions.isEmpty) {
-      _chartData = [];
-      notifyListeners();
-      return;
-    }
-
-    Map<String, double> categoryTotals = {};
-
-    for (var transaction in transactions) {
-      if (transaction.categoryId != null) {
-        final categoryName = await DatabaseHelper.instance
-                .getCategoryNameById(transaction.categoryId!) ??
-            'Uncategorized';
-
-        categoryTotals[categoryName] =
-            (categoryTotals[categoryName] ?? 0) + transaction.amount;
-      }
-    }
-
-    _chartData = categoryTotals.entries
-        .map((entry) => ExpenseData(entry.key, entry.value))
-        .toList();
-
-    notifyListeners();
+  void updateDashboardData(double totalAmount, double monthlyIncome) {
+    state = state.copyWith(
+      totalAmount: totalAmount,
+      monthlyIncome: monthlyIncome,
+      remainingAmount: monthlyIncome - totalAmount,
+    );
   }
 
-  // Update amounts
-  void updateAmounts({
-    required double total,
-    required double monthly,
-    required double remaining,
-  }) {
-    _totalAmount = total;
-    _monthlyIncome = monthly;
-    _remainingAmount = remaining;
-    notifyListeners();
+  void updateChartData(List<ExpenseData> data) {
+    state = state.copyWith(chartData: data);
   }
 
-  // Get date range based on current filter
   DateTimeRange getDateRange() {
-    final now = DateTime.now();
-    DateTime startDate;
-    DateTime endDate;
-
-    switch (_selectedFilter) {
+    switch (state.selectedFilter) {
       case 'today':
-        startDate = DateTime(now.year, now.month, now.day);
-        endDate = DateTime(now.year, now.month, now.day, 23, 59, 59);
-        break;
+        final now = DateTime.now();
+        return DateTimeRange(start: now, end: now);
       case 'month':
-        startDate = DateTime(_selectedYear, _selectedMonth, 1);
-        endDate = DateTime(_selectedYear, _selectedMonth + 1, 0);
-        break;
+        final start = DateTime(state.selectedYear, state.selectedMonth);
+        final end = DateTime(state.selectedYear, state.selectedMonth + 1, 0);
+        return DateTimeRange(start: start, end: end);
       case 'year':
-        startDate = DateTime(_selectedYear, 1, 1);
-        endDate = DateTime(_selectedYear, 12, 31);
-        break;
+        final start = DateTime(state.selectedYear);
+        final end = DateTime(state.selectedYear + 1, 0, 31);
+        return DateTimeRange(start: start, end: end);
       case 'custom':
-        if (_customDateRange != null) {
-          startDate = _customDateRange!.start;
-          endDate = _customDateRange!.end;
-        } else {
-          startDate = DateTime(now.year, now.month, now.day);
-          endDate = DateTime(now.year, now.month, now.day, 23, 59, 59);
-        }
-        break;
+        return state.customDateRange ??
+            DateTimeRange(
+              start: DateTime.now().subtract(const Duration(days: 7)),
+              end: DateTime.now(),
+            );
       default:
-        startDate = DateTime(now.year, now.month, now.day);
-        endDate = DateTime(now.year, now.month, now.day, 23, 59, 59);
+        final now = DateTime.now();
+        return DateTimeRange(start: now, end: now);
     }
-
-    return DateTimeRange(start: startDate, end: endDate);
   }
 }
 

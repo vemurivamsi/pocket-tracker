@@ -1,25 +1,23 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/income_provider.dart';
 import '../providers/transaction_provider.dart';
 import '../models/transaction_model.dart';
-import '../providers/dashboard_provider.dart'
-    show DashboardProvider, ExpenseData;
 import 'addexpensescreen.dart';
 import '../helper/databasehelper.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen>
+class _HomeScreenState extends ConsumerState<HomeScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
@@ -36,12 +34,12 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _initializeData() async {
     if (!mounted) return;
 
-    final dashboardProvider = context.read<DashboardProvider>();
+    final dashboardNotifier = ref.read(dashboardProvider.notifier);
 
     // Load initial data
     await Future.wait([
-      dashboardProvider.loadAvailableYears(),
-      dashboardProvider.loadAvailableMonths(),
+      dashboardNotifier.loadAvailableYears(),
+      dashboardNotifier.loadAvailableMonths(),
     ]);
 
     // Then load the transaction and income data
@@ -53,20 +51,20 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _loadData() async {
     if (!mounted) return;
 
-    final dashboardProvider = context.read<DashboardProvider>();
-    final transactionProvider = context.read<TransactionProvider>();
-    final incomeProvider = context.read<IncomeProvider>();
+    final dashboardNotifier = ref.read(dashboardProvider.notifier);
+    final transactionNotifier = ref.read(transactionProvider.notifier);
+    final incomeNotifier = ref.read(incomeProvider.notifier);
 
-    final dateRange = dashboardProvider.getDateRange();
+    final dateRange = dashboardNotifier.getDateRange();
 
     try {
       // Load data from both providers
       await Future.wait([
-        transactionProvider.loadTransactionsByDateRange(
+        transactionNotifier.loadTransactionsByDateRange(
           dateRange.start,
           dateRange.end,
         ),
-        incomeProvider.loadIncomeByMonth(
+        incomeNotifier.loadIncomeByMonth(
           dateRange.start.year,
           dateRange.start.month,
         ),
@@ -74,21 +72,32 @@ class _HomeScreenState extends State<HomeScreen>
 
       // Update dashboard data
       if (mounted) {
-        final totalAmount = transactionProvider.transactions
-            .fold(0.0, (sum, item) => sum + item.amount);
-        final monthlyIncome = incomeProvider.incomeEntries
-            .fold(0.0, (sum, item) => sum + item.amount);
-        final remainingAmount = monthlyIncome - totalAmount;
+        final transactionState = ref.read(transactionProvider);
+        final incomeState = ref.read(incomeProvider);
 
-        dashboardProvider.updateAmounts(
-          total: totalAmount,
-          monthly: monthlyIncome,
-          remaining: remainingAmount,
-        );
+        final totalAmount = transactionState.transactions
+            .fold(0.0, (sum, item) => sum + item.amount);
+        final monthlyIncome = incomeState.incomeEntries
+            .fold(0.0, (sum, item) => sum + item.amount);
+
+        dashboardNotifier.updateDashboardData(totalAmount, monthlyIncome);
 
         // Update chart data
-        await dashboardProvider
-            .updateChartData(transactionProvider.transactions);
+        final Map<String, double> categoryTotals = {};
+        for (var transaction in transactionState.transactions) {
+          final categoryDetails = await _getCategoryDetails(transaction);
+          final categoryName = categoryDetails['category']!;
+          categoryTotals.update(
+            categoryName,
+            (value) => value + transaction.amount,
+            ifAbsent: () => transaction.amount,
+          );
+        }
+        final chartData = categoryTotals.entries
+            .map((entry) => ExpenseData(entry.key, entry.value))
+            .toList();
+
+        dashboardNotifier.updateChartData(chartData);
       }
     } catch (e) {
       debugPrint('Error loading data: $e');
@@ -96,13 +105,13 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _showCustomDatePicker() async {
-    final dashboardProvider = context.read<DashboardProvider>();
+    final dashboardNotifier = ref.read(dashboardProvider.notifier);
 
     final picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2000),
       lastDate: DateTime.now(),
-      initialDateRange: dashboardProvider.customDateRange ??
+      initialDateRange: dashboardNotifier.state.customDateRange ??
           DateTimeRange(
             start: DateTime.now().subtract(const Duration(days: 7)),
             end: DateTime.now(),
@@ -110,19 +119,19 @@ class _HomeScreenState extends State<HomeScreen>
     );
 
     if (picked != null) {
-      dashboardProvider.updateCustomDateRange(picked);
-      dashboardProvider.updateFilter('custom');
+      dashboardNotifier.updateCustomDateRange(picked);
+      dashboardNotifier.updateFilter('custom');
       _loadData();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final transactionProvider = context.watch<TransactionProvider>();
-    final incomeProvider = context.watch<IncomeProvider>();
-    final dashboardProvider = context.watch<DashboardProvider>();
+    final transactionState = ref.watch(transactionProvider);
+    final incomeState = ref.watch(incomeProvider);
+    final dashboardState = ref.watch(dashboardProvider);
 
-    final isLoading = transactionProvider.isLoading || incomeProvider.isLoading;
+    final isLoading = transactionState.isLoading || incomeState.isLoading;
 
     return Scaffold(
       appBar: const CupertinoNavigationBar(
@@ -141,7 +150,7 @@ class _HomeScreenState extends State<HomeScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _getFilterTitle(dashboardProvider),
+                        _getFilterTitle(dashboardState),
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -154,7 +163,7 @@ class _HomeScreenState extends State<HomeScreen>
                           Expanded(
                             child: _buildAmountCard(
                               'Total Spent',
-                              dashboardProvider.totalAmount,
+                              dashboardState.totalAmount,
                               Colors.blue[100]!,
                             ),
                           ),
@@ -162,28 +171,27 @@ class _HomeScreenState extends State<HomeScreen>
                           Expanded(
                             child: _buildAmountCard(
                               'Remaining',
-                              dashboardProvider.remainingAmount,
+                              dashboardState.remainingAmount,
                               Colors.green[100]!,
-                              isNegative: dashboardProvider.remainingAmount < 0,
+                              isNegative: dashboardState.remainingAmount < 0,
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 24),
                       // Filter Cards
-                      _buildFilterSection(dashboardProvider),
+                      _buildFilterSection(dashboardState),
 
                       // Pie Chart
-                      if (dashboardProvider.chartData.isNotEmpty) ...[
+                      if (dashboardState.chartData.isNotEmpty) ...[
                         const SizedBox(height: 24),
-                        _buildPieChart(dashboardProvider.chartData),
+                        _buildPieChart(dashboardState.chartData),
                       ],
 
                       // Transactions List
-                      if (transactionProvider.transactions.isNotEmpty) ...[
+                      if (transactionState.transactions.isNotEmpty) ...[
                         const SizedBox(height: 24),
-                        _buildTransactionsList(
-                            transactionProvider.transactions),
+                        _buildTransactionsList(transactionState.transactions),
                       ] else ...[
                         _buildEmptyState(),
                       ],
@@ -227,31 +235,30 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildFilterSection(DashboardProvider dashboardProvider) {
+  Widget _buildFilterSection(DashboardState dashboardState) {
     return Column(
       children: [
         Row(
           children: [
-            _buildFilterButton('today', 'Today', dashboardProvider),
+            _buildFilterButton('today', 'Today', dashboardState),
             const SizedBox(width: 8),
-            _buildFilterButton('month', 'Month', dashboardProvider),
+            _buildFilterButton('month', 'Month', dashboardState),
             const SizedBox(width: 8),
-            _buildFilterButton('year', 'Year', dashboardProvider),
+            _buildFilterButton('year', 'Year', dashboardState),
           ],
         ),
         const SizedBox(height: 12),
-        if (dashboardProvider.selectedFilter == 'month' ||
-            dashboardProvider.selectedFilter == 'year')
-          _buildDateFilters(dashboardProvider),
+        if (dashboardState.selectedFilter == 'month' ||
+            dashboardState.selectedFilter == 'year')
+          _buildDateFilters(dashboardState),
         const SizedBox(height: 12),
-        _buildCustomRangeButton(dashboardProvider),
+        _buildCustomRangeButton(dashboardState),
       ],
     );
   }
 
-  Widget _buildFilterButton(
-      String filter, String label, DashboardProvider provider) {
-    final isSelected = provider.selectedFilter == filter;
+  Widget _buildFilterButton(String filter, String label, DashboardState state) {
+    final isSelected = state.selectedFilter == filter;
     return Expanded(
       child: Card(
         elevation: 4,
@@ -262,7 +269,7 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         child: InkWell(
           onTap: () {
-            provider.updateFilter(filter);
+            ref.read(dashboardProvider.notifier).updateFilter(filter);
             _loadData();
           },
           child: Padding(
@@ -294,17 +301,17 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  String _getFilterTitle(DashboardProvider provider) {
-    switch (provider.selectedFilter) {
+  String _getFilterTitle(DashboardState state) {
+    switch (state.selectedFilter) {
       case 'today':
         return 'Today\'s Overview';
       case 'month':
-        return '${DateFormat('MMMM yyyy').format(DateTime(provider.selectedYear, provider.selectedMonth))} Overview';
+        return '${DateFormat('MMMM yyyy').format(DateTime(state.selectedYear, state.selectedMonth))} Overview';
       case 'year':
-        return '${provider.selectedYear} Overview';
+        return '${state.selectedYear} Overview';
       case 'custom':
-        if (provider.customDateRange != null) {
-          return '${DateFormat('MMM dd').format(provider.customDateRange!.start)} - ${DateFormat('MMM dd').format(provider.customDateRange!.end)} Overview';
+        if (state.customDateRange != null) {
+          return '${DateFormat('MMM dd').format(state.customDateRange!.start)} - ${DateFormat('MMM dd').format(state.customDateRange!.end)} Overview';
         }
         return 'Custom Overview';
       default:
@@ -399,21 +406,21 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildDateFilters(DashboardProvider provider) {
+  Widget _buildDateFilters(DashboardState state) {
     return Row(
       children: [
-        if (provider.selectedFilter == 'year' ||
-            provider.selectedFilter == 'month') ...[
+        if (state.selectedFilter == 'year' ||
+            state.selectedFilter == 'month') ...[
           Expanded(
             child: Card(
               elevation: 4,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
                 child: DropdownButton<int>(
-                  value: provider.selectedYear,
+                  value: state.selectedYear,
                   isExpanded: true,
                   underline: const SizedBox(),
-                  items: provider.availableYears.map((int year) {
+                  items: state.availableYears.map((int year) {
                     return DropdownMenuItem<int>(
                       value: year,
                       child: Text(year.toString()),
@@ -421,7 +428,7 @@ class _HomeScreenState extends State<HomeScreen>
                   }).toList(),
                   onChanged: (int? newValue) {
                     if (newValue != null) {
-                      provider.updateYear(newValue);
+                      ref.read(dashboardProvider.notifier).updateYear(newValue);
                       _loadData();
                     }
                   },
@@ -430,7 +437,7 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           ),
         ],
-        if (provider.selectedFilter == 'month') ...[
+        if (state.selectedFilter == 'month') ...[
           const SizedBox(width: 8),
           Expanded(
             child: Card(
@@ -438,10 +445,10 @@ class _HomeScreenState extends State<HomeScreen>
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
                 child: DropdownButton<int>(
-                  value: provider.selectedMonth,
+                  value: state.selectedMonth,
                   isExpanded: true,
                   underline: const SizedBox(),
-                  items: provider.availableMonths.map((int month) {
+                  items: state.availableMonths.map((int month) {
                     return DropdownMenuItem<int>(
                       value: month,
                       child: Text(
@@ -450,7 +457,9 @@ class _HomeScreenState extends State<HomeScreen>
                   }).toList(),
                   onChanged: (int? newValue) {
                     if (newValue != null) {
-                      provider.updateMonth(newValue);
+                      ref
+                          .read(dashboardProvider.notifier)
+                          .updateMonth(newValue);
                       _loadData();
                     }
                   },
@@ -463,14 +472,14 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildCustomRangeButton(DashboardProvider provider) {
-    final isSelected = provider.selectedFilter == 'custom';
+  Widget _buildCustomRangeButton(DashboardState state) {
+    final isSelected = state.selectedFilter == 'custom';
     // Reset custom date range if another filter is selected
-    if (!isSelected && provider.customDateRange != null) {
-      provider.updateCustomDateRange(DateTimeRange(
-        start: DateTime.now().subtract(const Duration(days: 7)),
-        end: DateTime.now(),
-      ));
+    if (!isSelected && state.customDateRange != null) {
+      ref.read(dashboardProvider.notifier).updateCustomDateRange(DateTimeRange(
+            start: DateTime.now().subtract(const Duration(days: 7)),
+            end: DateTime.now(),
+          ));
     }
 
     return Card(
@@ -493,8 +502,8 @@ class _HomeScreenState extends State<HomeScreen>
               const Icon(Icons.date_range),
               const SizedBox(width: 8),
               Text(
-                provider.customDateRange != null
-                    ? '${DateFormat('MMM dd').format(provider.customDateRange!.start)} - ${DateFormat('MMM dd').format(provider.customDateRange!.end)}'
+                state.customDateRange != null
+                    ? '${DateFormat('MMM dd').format(state.customDateRange!.start)} - ${DateFormat('MMM dd').format(state.customDateRange!.end)}'
                     : 'Custom Range',
                 style: TextStyle(
                   fontSize: 16,

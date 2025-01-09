@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pocket_watcher/helper/databasehelper.dart';
 import 'package:pocket_watcher/models/transaction_model.dart';
 
-class AddExpenseScreen extends StatefulWidget {
+class AddExpenseScreen extends ConsumerStatefulWidget {
   const AddExpenseScreen({super.key});
 
   @override
-  State<AddExpenseScreen> createState() => _AddExpenseScreenState();
+  ConsumerState<AddExpenseScreen> createState() => _AddExpenseScreenState();
 }
 
-class _AddExpenseScreenState extends State<AddExpenseScreen> {
+class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
   DateTime _selectedDate = DateTime.now();
   String? _expandedCategory;
   final DatabaseHelper _databaseHelper = DatabaseHelper.instance;
@@ -80,10 +81,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
       // After loading categories and subcategories, load existing expenses
       await _loadExistingExpenses();
-
-      print('Loaded categories: ${categoryIds.keys}');
-      print('Loaded subcategories: ${subcategoryIds.keys}');
-      print('Category-Subcategory mapping: $categorySubcategoryMap');
     } catch (e, stackTrace) {
       print('Error loading data: $e');
       print('Stack trace: $stackTrace');
@@ -313,9 +310,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(subCategory),
+                                      Flexible(
+                                        child: Text(
+                                          subCategory,
+                                          overflow: TextOverflow.visible,
+                                        ),
+                                      ),
                                       SizedBox(
-                                        width: 100,
+                                        width: 120,
                                         child: TextField(
                                           controller:
                                               _subCategoryControllers[category]

@@ -47,9 +47,9 @@ class CategoryListItem extends StatelessWidget {
               ],
             ),
           ),
-          if (isExpanded && category.subcategories.isNotEmpty)
+          if (isExpanded && category.subcategories!.isNotEmpty)
             SubcategoryList(
-              subcategories: category.subcategories,
+              subcategories: category.subcategories!,
               categoryId: category.id!,
             ),
         ],

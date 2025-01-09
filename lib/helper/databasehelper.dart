@@ -214,7 +214,7 @@ class DatabaseHelper {
     Database db = await instance.database;
     // Check if the subcategory already exists under the category
     bool exists =
-        await subcategoryExists(subcategory.categoryId, subcategory.name);
+        await subcategoryExists(subcategory.categoryId!, subcategory.name!);
     if (exists) {
       throw Exception(
           'Subcategory "${subcategory.name}" already exists under category ID ${subcategory.categoryId}');
@@ -258,7 +258,7 @@ class DatabaseHelper {
 
       // Add subcategory to the corresponding category if it exists
       if (row['subcategory_id'] != null) {
-        categoryMap[categoryId]?.subcategories.add(
+        categoryMap[categoryId]!.subcategories?.add(
               Subcategory(
                 id: row['subcategory_id'] as int,
                 name: row['subcategory_name'] as String,
@@ -274,8 +274,12 @@ class DatabaseHelper {
   // Fetch all categories
   Future<List<Category>> getAllCategories() async {
     Database db = await instance.database;
-    List<Map<String, dynamic>> maps = await db.query('categories');
-    return maps.map((map) => Category.fromMap(map)).toList();
+    // List<Map<String, dynamic>> maps = await db.query('categories');
+    // return maps.map((map) => Category.fromMap(map)).toList();
+    final List<Map<String, dynamic>> maps = await db.query('categories');
+    return List.generate(maps.length, (i) {
+      return Category.fromMap(maps[i]);
+    });
   }
 
   // Fetch subcategories for a given category
@@ -286,7 +290,13 @@ class DatabaseHelper {
       where: 'category_id = ?',
       whereArgs: [categoryId],
     );
-    return maps.map((map) => Subcategory.fromMap(map)).toList();
+    print('Subcategory id: $categoryId maps: $maps');
+    if (maps.isEmpty) {
+      return [];
+    }
+    return List.generate(maps.length, (i) {
+      return Subcategory.fromMap(maps[i]);
+    });
   }
 
   // Delete category and its subcategories

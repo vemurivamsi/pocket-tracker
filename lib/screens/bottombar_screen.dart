@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:motion_tab_bar/MotionTabBar.dart';
 import 'package:pocket_watcher/screens/addexpensescreen.dart';
-import 'package:pocket_watcher/screens/reportscreen.dart';
 import 'package:pocket_watcher/screens/settingsscreen.dart';
 import 'homescreen.dart';
 
-class MainScreen extends StatefulWidget {
-  const MainScreen({Key? key}) : super(key: key);
+class MainScreen extends ConsumerStatefulWidget {
+  const MainScreen({super.key});
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
+class _MainScreenState extends ConsumerState<MainScreen>
+    with TickerProviderStateMixin {
   int _currentIndex = 0;
   final List<Widget> _screens = [
     const HomeScreen(),
     const AddExpenseScreen(),
-    // const ReportsScreen(),
     const SettingsScreen(),
   ];
 
@@ -27,12 +27,12 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       body: _screens[_currentIndex],
       bottomNavigationBar: MotionTabBar(
         initialSelectedTab: "Home",
-        labels: const ["Home", "Expense", "Settings"], //"Reports",
+        labels: const ["Home", "Expense", "Settings"],
         icons: const [
           Icons.home,
           Icons.add,
-          Icons.settings
-        ], // Icons.pie_chart,
+          Icons.settings,
+        ],
         onTabItemSelected: (int value) {
           setState(() {
             _currentIndex = value;
